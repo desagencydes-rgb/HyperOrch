@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyperOrch — AI Orchestration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="logo">
+            <h1>HyperOrch</h1>
+        </div>
+        <div class="connection-status">
+            <span id="socket-status" class="status-dot"></span>
+            <span id="socket-text">Disconnected</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- System Dashboard -->
+        <section class="card">
+            <h2>System Dashboard</h2>
+            <div class="dashboard-grid">
+                <div class="chart-container">
+                    <h3>CPU</h3>
+                    <canvas id="cpuChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>RAM</h3>
+                    <canvas id="ramChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>GPU</h3>
+                    <canvas id="gpuChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Task Router Section -->
+        <section class="card task-section">
+            <h2>⚡ Task Router</h2>
+            <div class="task-layout">
+                <!-- Left: Task Input -->
+                <div class="task-input-panel">
+                    <div class="form-group">
+                        <label for="task-type">Task Type</label>
+                        <select id="task-type">
+                            <option value="">Loading profiles...</option>
+                        </select>
+                    </div>
+
+                    <div id="profile-info" class="profile-info" style="display:none;">
+                        <div class="profile-badges">
+                            <span class="badge" id="badge-model">model</span>
+                            <span class="badge" id="badge-hardware">gpu</span>
+                            <span class="badge" id="badge-priority">P5</span>
+                        </div>
+                        <p id="profile-guide" class="guide-text"></p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="task-prompt">Prompt</label>
+                        <textarea id="task-prompt" rows="4" placeholder="Type your prompt here..."></textarea>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="primary" id="btn-send-task">Send Task</button>
+                    </div>
+                </div>
+
+                <!-- Right: Streaming Output -->
+                <div class="task-output-panel">
+                    <div class="task-status-bar">
+                        <span id="task-status-text">Ready</span>
+                        <span id="task-tps" class="tps-badge" style="display:none;">0 tok/s</span>
+                    </div>
+                    <pre id="task-output"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Two-column layout -->
+        <div class="grid-layout">
+            <!-- Left Column -->
+            <div class="column">
+                <section class="card">
+                    <h2>Launch Model (Direct)</h2>
+                    <div class="form-group">
+                        <label for="model-select">Select Model</label>
+                        <select id="model-select">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="backend-input">Backend</label>
+                        <input type="text" id="backend-input" readonly placeholder="Auto-detected">
+                    </div>
+                    <div class="form-group">
+                        <label for="path-input">Path</label>
+                        <input type="text" id="path-input" readonly placeholder="N/A">
+                    </div>
+                    <div class="form-group">
+                        <label for="gpu-layers">GPU Layers</label>
+                        <input type="number" id="gpu-layers" value="-1" min="-1" max="999">
+                    </div>
+                    <div class="form-group">
+                        <label for="ctx-size">Context Size</label>
+                        <input type="number" id="ctx-size" value="4096" step="1024" min="512">
+                    </div>
+                    <div class="form-group">
+                        <label for="quant-dropdown">Quantization</label>
+                        <select id="quant-dropdown">
+                            <option value="">None (Default)</option>
+                            <option value="Q8_0">8-bit (Q8_0)</option>
+                            <option value="Q5_K_M">5-bit (Q5_K_M)</option>
+                            <option value="Q4_K_M">4-bit (Q4_K_M)</option>
+                            <option value="Q3_K_S">3-bit (Q3_K_S)</option>
+                        </select>
+                    </div>
+                    <div class="button-group">
+                        <button class="primary" id="btn-launch">Launch</button>
+                        <button class="danger" id="btn-stop">Stop</button>
+                    </div>
+                </section>
+
+                <section class="card" id="active-model-card">
+                    <h2>Active Model</h2>
+                    <div id="active-model-info">No model running.</div>
+                </section>
+            </div>
+
+            <!-- Right Column -->
+            <div class="column">
+                <section class="card">
+                    <h2>Model Logs</h2>
+                    <pre id="log-output"></pre>
+                </section>
+
+                <section class="card">
+                    <h2>Context State</h2>
+                    <div class="button-group" style="margin-top: 0; margin-bottom: 1rem;">
+                        <button class="primary" id="btn-load-ctx">Load Context</button>
+                        <button class="danger" id="btn-save-ctx">Save Context</button>
+                    </div>
+                    <pre id="context-viewer" contenteditable="true" spellcheck="false"></pre>
+                </section>
+            </div>
+        </div>
+
+        <!-- Task History -->
+        <section class="card">
+            <h2>Task History</h2>
+            <div id="task-history" class="task-history">
+                <p class="text-muted">No tasks yet.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/monitor.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>

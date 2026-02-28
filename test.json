@@ -1,0 +1,173 @@
+{
+  "project": "HyperOrch",
+  "version": "0.1.0",
+  "description": "AI orchestration system for local LLM workflows (llama.cpp, Ollama). Provides CLI, Web GUI, context management, and intelligent scheduling.",
+  "created": "2026-02-28T15:51:00Z",
+  "last_updated": "2026-02-28T15:54:00Z",
+  "status": "SCAFFOLDING_READY",
+  "engineering_by": "Claude Opus (planning & architecture)",
+  "execution_by": "Gemini 3.1 Pro (implementation)",
+  "technology_stack": {
+    "language": "Python 3.10+",
+    "backend_framework": "FastAPI 0.110+",
+    "cli_framework": "Click 8.1+",
+    "frontend": "Vanilla HTML/CSS/JS (no build step)",
+    "charts": "Chart.js (via CDN)",
+    "realtime": "WebSockets (native FastAPI)",
+    "monitoring": "psutil + GPUtil",
+    "server": "Uvicorn"
+  },
+  "architecture": {
+    "pattern": "Monorepo \u2014 Python package + static web frontend served by FastAPI",
+    "entry_points": {
+      "cli": "hyperorch.cli:main (Click group)",
+      "web": "hyperorch.server:app (FastAPI ASGI)"
+    },
+    "modules": {
+      "hyperorch/__init__.py": "Package init, __version__ = '0.1.0'",
+      "hyperorch/cli.py": "Click CLI with commands: detect, launch, stop, status, context, serve",
+      "hyperorch/server.py": "FastAPI app \u2014 REST API + WebSocket endpoints + static file serving",
+      "hyperorch/orchestrator.py": "Scheduler: CPU/GPU decision, quantization recommendation, fallback logic",
+      "hyperorch/model_manager.py": "Model detection (Ollama + GGUF scan), launch/stop via subprocess",
+      "hyperorch/resource_monitor.py": "System metrics via psutil/GPUtil, background monitoring thread",
+      "hyperorch/context_store.py": "context.json read/write with schema validation",
+      "hyperorch/safety.py": "Memory guards, overwrite confirmation"
+    },
+    "frontend_files": {
+      "web/index.html": "Single-page app shell with 4 panels: Dashboard, Models, Logs, Context",
+      "web/css/style.css": "Dark theme, glassmorphism, neon accents, responsive grid",
+      "web/js/app.js": "Main controller \u2014 API calls, DOM manipulation",
+      "web/js/monitor.js": "Chart.js real-time graphs fed by WebSocket",
+      "web/js/websocket.js": "WebSocket connection manager for /ws/monitor and /ws/logs"
+    }
+  },
+  "api_endpoints": {
+    "REST": {
+      "GET /": "Serve web frontend (index.html)",
+      "GET /api/models": "List detected models (Ollama + GGUF)",
+      "POST /api/launch": "Launch model \u2014 body: {name, backend, gpu_layers, ctx_size, quantization}",
+      "POST /api/stop": "Stop running model",
+      "GET /api/status": "System status: resources + running model info",
+      "GET /api/context": "Read current context.json",
+      "POST /api/context": "Write/update context.json"
+    },
+    "WebSocket": {
+      "WS /ws/monitor": "Pushes resource snapshots every 1 second",
+      "WS /ws/logs": "Streams model stdout/stderr in real-time"
+    }
+  },
+  "cli_commands": {
+    "hyperorch detect": "Scan for Ollama models (ollama list) + GGUF files in common paths",
+    "hyperorch launch MODEL": "Launch model. Flags: --backend [ollama|llamacpp], --gpu-layers N, --ctx-size N, --quant Q4_K_M",
+    "hyperorch stop": "Stop running model process",
+    "hyperorch status": "Print CPU/RAM/GPU usage + active model info",
+    "hyperorch context save [FILE]": "Save current state to context.json (default) or specified file",
+    "hyperorch context load [FILE]": "Load state from context.json or specified file",
+    "hyperorch serve": "Start web server on port 8000"
+  },
+  "context_schema": {
+    "version": "1.0",
+    "timestamp": "ISO 8601",
+    "hardware": {
+      "cpu_name": "string",
+      "cpu_cores": "int",
+      "ram_total_gb": "float",
+      "gpu_name": "string | null",
+      "vram_total_gb": "float | null"
+    },
+    "active_model": {
+      "name": "string | null",
+      "backend": "ollama | llamacpp | null",
+      "gpu_layers": "int",
+      "ctx_size": "int",
+      "quantization": "string | null",
+      "pid": "int | null"
+    },
+    "model_configs": [
+      {
+        "name": "string",
+        "backend": "ollama | llamacpp",
+        "path": "string | null",
+        "default_gpu_layers": "int",
+        "default_ctx_size": "int",
+        "default_quantization": "string | null"
+      }
+    ],
+    "prompts": [
+      {
+        "label": "string",
+        "template": "string"
+      }
+    ],
+    "cli_settings": {
+      "default_backend": "ollama",
+      "gguf_search_paths": [
+        "string"
+      ],
+      "auto_detect_on_start": "bool"
+    },
+    "ui_settings": {
+      "theme": "dark",
+      "monitor_interval_ms": 1000,
+      "log_max_lines": 500
+    },
+    "orchestrator_settings": {
+      "auto_gpu": "bool \u2014 auto-select GPU layers based on VRAM",
+      "memory_threshold_pct": "int \u2014 warn if RAM usage exceeds this %",
+      "vram_threshold_pct": "int \u2014 warn if VRAM usage exceeds this %",
+      "prefer_quantization": "string | null \u2014 default quant level for low-mem",
+      "fallback_remote_endpoint": "string | null \u2014 URL for cloud offload"
+    }
+  },
+  "orchestrator_logic": {
+    "decide_execution_target": {
+      "input": "model_size_gb, available_ram_gb, available_vram_gb, user_preferences",
+      "rules": [
+        "If GPU available AND vram >= model_size * 1.2 \u2192 full GPU offload (gpu_layers = -1)",
+        "If GPU available AND vram >= model_size * 0.5 \u2192 partial GPU (calculate layers proportionally)",
+        "If GPU available AND vram < model_size * 0.5 \u2192 CPU-only, recommend quantization",
+        "If no GPU \u2192 CPU-only, recommend Q4_K_M quantization",
+        "If total available memory < model_size * 0.8 \u2192 WARN user, suggest smaller model or remote fallback"
+      ]
+    },
+    "quantization_recommendation": {
+      "rules": [
+        "RAM >= 32GB \u2192 Q8_0 or no quantization",
+        "16GB <= RAM < 32GB \u2192 Q5_K_M",
+        "8GB <= RAM < 16GB \u2192 Q4_K_M",
+        "RAM < 8GB \u2192 Q3_K_S or suggest smaller model"
+      ]
+    }
+  },
+  "safety_rules": [
+    "Never overwrite existing model files without explicit user confirmation (CLI prompt + API confirmation field)",
+    "Before launching a model, check estimated memory requirement vs available memory",
+    "If estimated memory > 85% of available \u2192 show WARNING with recommendation",
+    "If estimated memory > 95% of available \u2192 BLOCK launch unless --force flag is used",
+    "Log all launch/stop actions with timestamps"
+  ],
+  "dependencies": {
+    "python": {
+      "fastapi": ">=0.110.0",
+      "uvicorn[standard]": ">=0.28.0",
+      "click": ">=8.1.0",
+      "psutil": ">=5.9.0",
+      "gputil": ">=1.4.0",
+      "websockets": ">=12.0"
+    },
+    "frontend_cdn": {
+      "chart.js": "https://cdn.jsdelivr.net/npm/chart.js@4.4.0"
+    },
+    "system": {
+      "ollama": "Optional \u2014 must be installed by user (https://ollama.com)",
+      "llama.cpp": "Optional \u2014 llama-cli must be in PATH or configured in context.json"
+    }
+  },
+  "reference_repos": {
+    "primary": "https://github.com/oobabooga/text-generation-webui \u2014 patterns for multi-backend model serving, Gradio UI, extension system",
+    "multiuser": "https://github.com/flurb18/text-generation-webui-multiuser \u2014 multiuser session patterns",
+    "curated_tools_1": "https://github.com/guspan-tanadi/awesome-local-aifromjanhq \u2014 local AI tools list",
+    "curated_tools_2": "https://github.com/secret-ai-labs/awesome-local-llm \u2014 inference tools overview"
+  },
+  "timestamp": "2026-02-28T16:07:16.036803Z"
+}

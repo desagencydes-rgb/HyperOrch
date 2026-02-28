@@ -1,0 +1,7 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+click>=8.1.0
+psutil>=5.9.0
+gputil>=1.4.0
+pyadl>=0.1
+websockets>=12.0
